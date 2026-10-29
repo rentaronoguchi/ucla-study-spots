@@ -1,0 +1,4 @@
+html, body, #root { height: 100%; margin: 0; }
+.popup img { width: 100%; max-width: 220px; border-radius: 6px; margin-top: 6px; display: block; }
+.popup h3 { margin: 0 0 4px; }
+.popup p { margin: 2px 0; }
