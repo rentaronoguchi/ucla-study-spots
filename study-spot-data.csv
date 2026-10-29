@@ -1,11 +1,11 @@
-Name,Latitude,Lontitude,Area,Category,Photos,Description,Can Talk?,Rentaro Rating (5)
-Powell Library,34.07161998,-118.4421828,North Campus,Library,?,NA,F1,3
-Biomedical Library (Louise M. Darling),34.06647874,-118.4418925,South Campus,Library,images/biomedical-library-f6,NA,F6,5
-Kerckhoff Hall,34.07030858,-118.4435493,Bruin Walk,Study Area,images/kerckhoff-hall,NA,Somewhat,4.5
-Young Research Library,34.07492194,-118.4414541,North Campus,Library,?,NA,F1,4.5
-Outside Campbell Hall,34.07408962,-118.4416162,North Campus,Outside,images/outside-campbell-hall,NA,Yes,4
-Cafe 1919 Upper Patio,34.0726306,-118.450938,The Hill,Outside,?,NA,Yes,5
-Outside Rieber Hall,34.07198076,-118.4513801,The Hill,Outside,?,NA,Yes,4
-Music Library (Walter H. Rubsamen),34.07109906,-118.4402833,North Campus,Library,images/music-library,Small library; can get cramped,No,?
-The Study,34.07319312,-118.4521633,The Hill,Study Area,?,First to get crowded,Main area,4
-Outside Bruin Cafe,34.07273384,-118.4503317,The Hill,Outside,?,NA,Yes,4.5
+Name,Latitude,Longitude,Area,Category,Photos,Description,Can Talk,Rentaro Rating (5)
+Powell Library,34.07161998,-118.4421828,North Campus,Library,,,F1,3
+Biomedical Library (Louise M. Darling),34.06647874,-118.4418925,South Campus,Library,images/biomedical-library-f6.jpg,,F6,5
+Kerckhoff Hall,34.07030858,-118.4435493,Bruin Walk,Study Area,images/kerckhoff-hall.jpg,,Somewhat,4.5
+Young Research Library,34.07492194,-118.4414541,North Campus,Library,,,F1,4.5
+Outside Campbell Hall,34.07408962,-118.4416162,North Campus,Outside,images/outside-campbell-hall.jpg,,Yes,4
+Cafe 1919 Upper Patio,34.0726306,-118.450938,The Hill,Outside,,,Yes,5
+Outside Rieber Hall,34.07198076,-118.4513801,The Hill,Outside,,,Yes,4
+Music Library (Walter H. Rubsamen),34.07109906,-118.4402833,North Campus,Library,images/music-library.jpg,Small library; can get cramped,No,?
+The Study,34.07319312,-118.4521633,The Hill,Study Area,,First to get crowded,Main area,4
+Outside Bruin Cafe,34.07273384,-118.4503317,The Hill,Outside,,,Yes,4.5
