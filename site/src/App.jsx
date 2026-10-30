@@ -42,6 +42,9 @@ const canTalk = (v) => clean(v).toLowerCase() !== "no";
 const isOut = (r) => r["Category"] === "Outside";
 const byDist = (a, b) => (a.dist ?? 0) - (b.dist ?? 0);
 
+// "images/young-research-library-quiet.jpg" -> "young-research-library-quiet.jpg"
+const fileName = (p) => p.split("/").pop();
+
 // Red (low) -> green (high)
 const ratingColor = (r) => `hsl(${(r / 5) * 120}, 70%, 42%)`;
 
@@ -55,6 +58,53 @@ const sorters = {
 };
 
 const ZOOM = 17;
+
+// File name on top, one big photo with arrows/counter, clickable thumbnails
+function PhotoCarousel({ photos }) {
+  const [i, setI] = useState(0);
+  if (!photos.length) return null;
+
+  const goTo = (n) => (e) => {
+    e.stopPropagation();
+    setI((n + photos.length) % photos.length);
+  };
+
+  return (
+    <div className="carousel">
+      <div className="car-name">{fileName(photos[i])}</div>
+      <div className="car-main">
+        <img
+          src={BASE + photos[i]}
+          alt={fileName(photos[i])}
+          onClick={photos.length > 1 ? goTo(i + 1) : undefined}
+          style={{ cursor: photos.length > 1 ? "pointer" : "default" }}
+        />
+        {photos.length > 1 && (
+          <>
+            <button className="car-btn prev" onClick={goTo(i - 1)}>‹</button>
+            <button className="car-btn next" onClick={goTo(i + 1)}>›</button>
+            <span className="car-count">{i + 1} / {photos.length}</span>
+          </>
+        )}
+      </div>
+
+      {photos.length > 1 && (
+        <div className="car-thumbs">
+          {photos.map((p, n) => (
+            <img
+              key={p}
+              src={BASE + p}
+              alt={fileName(p)}
+              title={fileName(p)}
+              className={n === i ? "active" : ""}
+              onClick={goTo(n)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [spots, setSpots] = useState([]);
@@ -223,7 +273,10 @@ export default function App() {
           />
         )}
         {items.map(({ row, lat, lng, dist }) => {
-          const photos = clean(row["Photos"]).split(";").filter(Boolean);
+          const photos = clean(row["Photos"])
+            .split(";")
+            .map((p) => p.trim())
+            .filter(Boolean);
           const rating = clean(row["Rentaro Rating (5)"]);
           const desc = clean(row["Description"]);
           const talk = clean(talkOf(row));
@@ -245,9 +298,7 @@ export default function App() {
                   {rating && <p>Rating: {rating}/5</p>}
                   {talk && <p>Can talk: {talk}</p>}
                   {desc && <p>{desc}</p>}
-                  {photos.map((p) => (
-                    <img key={p} src={BASE + p.trim()} alt={row["Name"]} />
-                  ))}
+                  <PhotoCarousel photos={photos} />
                 </div>
               </Popup>
             </Marker>
