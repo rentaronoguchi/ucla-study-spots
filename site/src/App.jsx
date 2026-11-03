@@ -59,6 +59,10 @@ const pinOut = mkPin("pin-out");
 const pinIn = mkPin("pin-in");
 const byDist = (a, b) => (a.dist ?? 0) - (b.dist ?? 0);
 
+// Opens Google Maps walking directions from the user's location to the spot
+const directionsUrl = (lat, lng) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
+
 // "images/young-research-library-quiet.jpg" -> "young-research-library-quiet.jpg"
 const fileName = (p) => p.split("/").pop();
 
@@ -336,6 +340,23 @@ export default function App() {
                   {rating && <p>Rating: {rating}/5</p>}
                   {talk && <p>Can talk: {talk}</p>}
                   {desc && <p>{desc}</p>}
+                  <a
+                    href={directionsUrl(lat, lng)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-block",
+                      margin: "6px 0",
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      background: "#2563eb",
+                      color: "#fff",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Get directions
+                  </a>
                   <PhotoCarousel photos={photos} />
                 </div>
               </Popup>
