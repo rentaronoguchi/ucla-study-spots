@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl } from "react-leaflet";
 import Papa from "papaparse";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -46,6 +46,17 @@ const talkOf = (r) => {
 // Only an explicit "No" means you can't talk
 const canTalk = (v) => clean(v).toLowerCase() !== "no";
 const isOut = (r) => r["Category"] === "Outside";
+const catColor = (r) => (isOut(r) ? "#2563eb" : "#f97316");
+const mkPin = (cls) =>
+  L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    className: cls,
+  });
+const pinOut = mkPin("pin-out");
+const pinIn = mkPin("pin-in");
 const byDist = (a, b) => (a.dist ?? 0) - (b.dist ?? 0);
 
 // "images/young-research-library-quiet.jpg" -> "young-research-library-quiet.jpg"
@@ -222,6 +233,7 @@ export default function App() {
             <div
               key={row["Name"]}
               className="list-item"
+              style={{ borderRight: `4px solid ${catColor(row)}` }}
               onMouseEnter={() => setHovered(row["Name"])}
               onMouseLeave={() => setHovered(null)}
               onClick={() => selectSpot(row["Name"], lat, lng)}
@@ -267,10 +279,29 @@ export default function App() {
         zoom={15}
         style={{ position: "fixed", inset: 0 }}
       >
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="&copy; OpenStreetMap contributors"
-        />
+        <LayersControl position="topleft">
+
+          <LayersControl.BaseLayer checked name="Original">
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+            />
+          </LayersControl.BaseLayer>
+
+          <LayersControl.BaseLayer name="Voyager">
+            <TileLayer
+              url="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_51jj_1_e353c9e2c37ed983759151c7"
+              attribution="&copy; OpenStreetMap contributors &copy; CARTO"
+            />
+          </LayersControl.BaseLayer>
+
+          <LayersControl.BaseLayer name="Satellite">
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri"
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
         {me && (
           <CircleMarker
             center={me}
@@ -291,6 +322,7 @@ export default function App() {
             <Marker
               key={row["Name"]}
               position={[lat, lng]}
+              icon={isOut(row) ? pinOut : pinIn}
               ref={(m) => {
                 if (m) markerRefs.current[row["Name"]] = m;
                 else delete markerRefs.current[row["Name"]];
