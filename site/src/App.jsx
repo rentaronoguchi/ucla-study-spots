@@ -16,13 +16,19 @@ L.Marker.prototype.options.icon = L.icon({
 
 const BASE = import.meta.env.BASE_URL;
 
+const SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEPR4c3uD3TOEbIaszYujn5o07lqWNSZHD_0coqeYD87PhEVZEGwfXLGR5Lmcdy0BjyoqGQNfYYbol/pub?gid=0&single=true&output=csv";
+
+// Full URLs pass through; filenames resolve against the site folder
+const src = (p) => (p.startsWith("http") ? p : BASE + p);
+
 // Treat blanks, "?" and "NA" as empty
 const clean = (v) => {
   v = (v || "").trim();
   return v === "?" || v.toUpperCase() === "NA" ? "" : v;
 };
 
-const miles = (m) => `${(m / 1609.34).toFixed(1)} mi`;
+const miles = (m) => `${(m / 1609.34).toFixed(2)} mi`;
 
 const num = (v) => {
   const n = parseFloat(clean(v));
@@ -74,7 +80,7 @@ function PhotoCarousel({ photos }) {
       <div className="car-name">{fileName(photos[i])}</div>
       <div className="car-main">
         <img
-          src={BASE + photos[i]}
+          src={src(photos[i])}
           alt={fileName(photos[i])}
           onClick={photos.length > 1 ? goTo(i + 1) : undefined}
           style={{ cursor: photos.length > 1 ? "pointer" : "default" }}
@@ -93,7 +99,7 @@ function PhotoCarousel({ photos }) {
           {photos.map((p, n) => (
             <img
               key={p}
-              src={BASE + p}
+              src={src(p)}
               alt={fileName(p)}
               title={fileName(p)}
               className={n === i ? "active" : ""}
@@ -116,7 +122,7 @@ export default function App() {
   const pendingOpen = useRef(null);
 
   useEffect(() => {
-    Papa.parse(`${BASE}study-spot-data.csv`, {
+    Papa.parse(SHEET_URL, {
       download: true,
       header: true,
       skipEmptyLines: true,
