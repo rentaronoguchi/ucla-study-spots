@@ -20,7 +20,10 @@ const SHEET_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEPR4c3uD3TOEbIaszYujn5o07lqWNSZHD_0coqeYD87PhEVZEGwfXLGR5Lmcdy0BjyoqGQNfYYbol/pub?gid=0&single=true&output=csv";
 
 // Full URLs pass through; filenames resolve against the site folder
-const src = (p) => (p.startsWith("http") ? p : BASE + p);
+const src = (p) =>
+  p.startsWith("http") ? p
+  : p.includes("/") ? BASE + p
+  : BASE + "images/" + p;
 
 // Treat blanks, "?" and "NA" as empty
 const clean = (v) => {
