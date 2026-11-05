@@ -19,6 +19,10 @@ const BASE = import.meta.env.BASE_URL;
 const SHEET_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEPR4c3uD3TOEbIaszYujn5o07lqWNSZHD_0coqeYD87PhEVZEGwfXLGR5Lmcdy0BjyoqGQNfYYbol/pub?gid=0&single=true&output=csv";
 
+// "Levels" tab: one row per level of a multi-level spot
+const LEVELS_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEPR4c3uD3TOEbIaszYujn5o07lqWNSZHD_0coqeYD87PhEVZEGwfXLGR5Lmcdy0BjyoqGQNfYYbol/pub?gid=663956636&single=true&output=csv";
+
 // Full URLs pass through; filenames resolve against the site folder
 const src = (p) =>
   p.startsWith("http") ? p
@@ -36,6 +40,14 @@ const miles = (m) => `${(m / 1609.34).toFixed(2)} mi`;
 const num = (v) => {
   const n = parseFloat(clean(v));
   return isNaN(n) ? -1 : n;
+};
+
+// Reads a column by name, ignoring case, spacing, and a hidden BOM
+const field = (r, name) => {
+  const key = Object.keys(r).find(
+    (k) => k.replace(/^\uFEFF/, "").trim().toLowerCase() === name.toLowerCase()
+  );
+  return key ? r[key] || "" : "";
 };
 
 // Finds the Can Talk column regardless of "?", spacing, case, or a hidden BOM
@@ -84,7 +96,7 @@ const sorters = {
 const ZOOM = 17;
 
 // File name on top, one big photo with arrows/counter, clickable thumbnails
-function PhotoCarousel({ photos }) {
+function PhotoCarousel({ photos, captions }) {
   const [i, setI] = useState(0);
   if (!photos.length) return null;
 
@@ -95,7 +107,7 @@ function PhotoCarousel({ photos }) {
 
   return (
     <div className="carousel">
-      <div className="car-name">{fileName(photos[i])}</div>
+      <div className="car-name">{captions ? captions[i] : fileName(photos[i])}</div>
       <div className="car-main">
         <img
           src={src(photos[i])}
@@ -130,8 +142,163 @@ function PhotoCarousel({ photos }) {
   );
 }
 
+// Badge text/colors for a level's Can Talk value
+const talkBadge = (v) => {
+  const t = (v || "").toLowerCase();
+  if (!t) return null;
+  if (t === "no") return { text: "Quiet", bg: "#dbeafe", fg: "#1e40af" };
+  if (t === "yes") return { text: "Can talk", bg: "#dcfce7", fg: "#166534" };
+  return { text: v, bg: "#f3f4f6", fg: "#374151" };
+};
+
+// Stack of levels (highest on top). Tap a bar to see that level's info and photos.
+// `levels` is sorted lowest -> highest.
+// Stack of levels (highest on top). Default shows photos from every level;
+// tap a level to see just that level, tap it again (or "All photos") to go back.
+// `levels` is sorted lowest -> highest.
+// Stack of levels (highest on top). Levels that share an Order (same floor,
+// different areas) sit side by side in one row. Default shows photos from every
+// level; tap a level to see just that one, tap it again (or "All photos") to go back.
+// `levels` is sorted lowest -> highest.
+function LevelStack({ levels, spotPhotos }) {
+  const [sel, setSel] = useState(null); // null = all levels
+  const cur = sel == null ? null : levels[sel];
+
+  // Group levels that share an Order. They're already sorted by Order, so
+  // equal orders are adjacent, and areas keep their sheet order.
+  const groups = [];
+  levels.forEach((l, n) => {
+    const order = l.order || 0;
+    const last = groups[groups.length - 1];
+    if (last && last.order === order) last.items.push({ l, n });
+    else groups.push({ order, items: [{ l, n }] });
+  });
+  const topDown = [...groups].reverse(); // highest floor first
+  const hasSideBySide = groups.some((g) => g.items.length > 1);
+
+  // Photos for the carousel, each with a caption naming its level
+  let photos, captions;
+  if (cur) {
+    photos = cur.photos;
+    captions = cur.photos.map(() => cur.name);
+  } else {
+    const all = topDown
+      .flatMap((g) => g.items)
+      .flatMap(({ l }) => l.photos.map((p) => ({ p, name: l.name })));
+    if (all.length) {
+      photos = all.map((x) => x.p);
+      captions = all.map((x) => x.name);
+    } else {
+      // No level has its own photos: fall back to the spot's main photos
+      photos = spotPhotos;
+      captions = undefined;
+    }
+  }
+
+  const levelBtn = ({ l, n }, side) => {
+    const badge = talkBadge(l.talk);
+    const active = n === sel;
+    return (
+      <button
+        key={n}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSel(active ? null : n);
+        }}
+        style={{
+          display: "flex",
+          flexDirection: side ? "column" : "row",
+          justifyContent: side ? "center" : "space-between",
+          alignItems: side ? "flex-start" : "center",
+          gap: side ? 4 : 8,
+          flex: 1,
+          minWidth: 0,
+          padding: "6px 10px",
+          borderRadius: 6,
+          border: active ? "2px solid #2563eb" : "1px solid #d1d5db",
+          background: active ? "#eff6ff" : "#fff",
+          cursor: "pointer",
+          textAlign: "left",
+          font: "inherit",
+          fontWeight: active ? 600 : 400,
+        }}
+      >
+        <span>{l.name}</span>
+        {badge && (
+          <span
+            style={{
+              padding: "1px 8px",
+              borderRadius: 999,
+              background: badge.bg,
+              color: badge.fg,
+              fontSize: 11,
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {badge.text}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          margin: "6px 0 4px",
+        }}
+      >
+        <span style={{ fontSize: 12, color: "#6b7280" }}>
+          Levels · top is highest
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setSel(null);
+          }}
+          style={{
+            padding: "2px 8px",
+            borderRadius: 999,
+            border: sel == null ? "2px solid #2563eb" : "1px solid #d1d5db",
+            background: sel == null ? "#eff6ff" : "#fff",
+            fontSize: 12,
+            fontWeight: sel == null ? 600 : 400,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          All photos
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {topDown.map((g) => (
+          <div key={g.order} style={{ display: "flex", gap: 4 }}>
+            {g.items.map((it) => levelBtn(it, g.items.length > 1))}
+          </div>
+        ))}
+      </div>
+
+      {cur?.desc && <p style={{ margin: "8px 0 0" }}>{cur.desc}</p>}
+
+      {cur && !cur.photos.length && (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#9ca3af" }}>
+          No photos for this level yet.
+        </p>
+      )}
+      <PhotoCarousel key={sel ?? "all"} photos={photos} captions={captions} />
+    </div>
+  );
+}
+
 export default function App() {
   const [spots, setSpots] = useState([]);
+  const [levels, setLevels] = useState({});
   const [me, setMe] = useState(null);
   const [map, setMap] = useState(null);
   const [sortBy, setSortBy] = useState("distance");
@@ -146,6 +313,36 @@ export default function App() {
       skipEmptyLines: true,
       complete: ({ data }) => setSpots(data),
     });
+
+    // Levels tab: group rows by spot name, sorted lowest -> highest by Order
+    Papa.parse(LEVELS_URL, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: ({ data }) => {
+        const grouped = {};
+        data.forEach((r) => {
+          const spot = field(r, "Spot").trim();
+          if (!spot) return;
+          grouped[spot] = grouped[spot] || [];
+          grouped[spot].push({
+            order: parseFloat(field(r, "Order")),
+            name: field(r, "Level").trim(),
+            talk: clean(field(r, "Can Talk")),
+            photos: clean(field(r, "Photos"))
+              .split(";")
+              .map((p) => p.trim())
+              .filter(Boolean),
+            desc: clean(field(r, "Description")),
+          });
+        });
+        Object.values(grouped).forEach((arr) =>
+          arr.sort((a, b) => (a.order || 0) - (b.order || 0))
+        );
+        setLevels(grouped);
+      },
+    });
+
     const id = navigator.geolocation.watchPosition(
       (p) => setMe([p.coords.latitude, p.coords.longitude]),
       (e) => console.warn("Location denied:", e.message),
@@ -236,6 +433,7 @@ export default function App() {
           const hasR = !isNaN(r);
           const cell = talkOf(row).trim();
           const showTalk = sortBy === "talk" && hovered === row["Name"];
+          const lv = levels[row["Name"].trim()];
           return (
             <div
               key={row["Name"]}
@@ -258,7 +456,10 @@ export default function App() {
                   <b>{row["Name"]}</b>
                   {dist != null && <span className="pill">{miles(dist)}</span>}
                 </div>
-                <small>{row["Area"]} · {row["Category"]}</small>
+                <small>
+                  {row["Area"]} · {row["Category"]}
+                  {lv ? ` · ${lv.length} levels` : ""}
+                </small>
                 {showTalk && (
                   <div
                     style={{
@@ -324,6 +525,7 @@ export default function App() {
           const rating = clean(row["Rentaro Rating (5)"]);
           const desc = clean(row["Description"]);
           const talk = clean(talkOf(row));
+          const lv = levels[row["Name"].trim()];
 
           return (
             <Marker
@@ -341,7 +543,7 @@ export default function App() {
                   <p>{row["Area"]} · {row["Category"]}</p>
                   {dist != null && <p>Distance: {miles(dist)}</p>}
                   {rating && <p>Rating: {rating}/5</p>}
-                  {talk && <p>Can talk: {talk}</p>}
+                  {talk && !lv && <p>Can talk: {talk}</p>}
                   {desc && <p>{desc}</p>}
                   <a
                     href={directionsUrl(lat, lng)}
@@ -360,7 +562,11 @@ export default function App() {
                   >
                     Get directions
                   </a>
-                  <PhotoCarousel photos={photos} />
+                  {lv ? (
+                    <LevelStack levels={lv} spotPhotos={photos} />
+                  ) : (
+                    <PhotoCarousel photos={photos} />
+                  )}
                 </div>
               </Popup>
             </Marker>
