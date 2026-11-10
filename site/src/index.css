@@ -83,3 +83,33 @@ body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; display: b
 @media (max-width: 600px) {
   .list { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-height: 40vh; border-radius: 14px 14px 0 0; }
 }
+
+.auth { padding: 10px 16px; border-bottom: 1px solid #eee; font-size: 13px; color: #374151; }
+.auth input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+.auth button { margin-top: 6px; padding: 6px 10px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; cursor: pointer; }
+.auth button:disabled { opacity: 0.5; cursor: default; }
+.auth button.link { background: none; color: #2563eb; padding: 0; margin: 0 0 0 8px; }
+.auth .err { color: #dc2626; margin-top: 4px; }
+
+.chk { margin: 8px 0 4px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: #16a34a; color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.chk.out { background: #6b7280; }
+
+.friends { padding: 8px 16px; border-bottom: 1px solid #eee; font-size: 13px; color: #374151; }
+.friends summary { cursor: pointer; font-weight: 600; }
+.friends .badge { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; }
+.f-add { display: flex; gap: 6px; margin-top: 8px; }
+.f-add input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+.friends button { padding: 5px 9px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; cursor: pointer; }
+.friends button.link { background: none; color: #2563eb; padding: 5px 4px; }
+.f-row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.f-msg { margin-top: 4px; color: #6b7280; }
+
+.live { padding: 8px 16px; border-bottom: 1px solid #eee; font-size: 13px; color: #374151; }
+.live-title { font-weight: 600; margin-bottom: 4px; }
+.live-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; }
+.live-row:hover { color: #2563eb; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; flex: none; }
+
+.mine { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0; font-size: 13px; color: #166534; }
+.mine-text { flex: 1; min-width: 0; cursor: pointer; }
+.mine button { padding: 4px 10px; border: 0; border-radius: 8px; background: #6b7280; color: #fff; font: inherit; cursor: pointer; }

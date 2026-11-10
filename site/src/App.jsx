@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
+import { supabase } from "./supabase";
 
 // Fixes Leaflet's default marker icon under Vite
 L.Marker.prototype.options.icon = L.icon({
@@ -296,6 +297,176 @@ function LevelStack({ levels, spotPhotos }) {
   );
 }
 
+function AuthBar({ session }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    if (!session) return setUsername("");
+    supabase.from("profiles").select("username").eq("id", session.user.id).single()
+      .then(({ data }) => setUsername(data?.username || ""));
+  }, [session]);
+
+  const send = async () => {
+    setErr("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + BASE },
+    });
+    if (error) setErr(error.message);
+    else setSent(true);
+  };
+  const google = () =>
+  supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + BASE },
+  });
+
+  const rename = async () => {
+    const name = prompt("Username", username)?.trim();
+    if (!name) return;
+    const { error } = await supabase.from("profiles").update({ username: name }).eq("id", session.user.id);
+    if (error) alert(error.message);
+    else setUsername(name);
+  };
+
+  if (session)
+    return (
+      <div className="auth">
+        Signed in as <b>{username || "…"}</b>
+        <button className="link" onClick={rename}>edit</button>
+        <button className="link" onClick={() => supabase.auth.signOut()}>sign out</button>
+      </div>
+    );
+
+  return (
+    <div className="auth">
+      {sent ? (
+        <>Check your email for the sign-in link.</>
+      ) : (
+        <>
+          <button onClick={google}>Continue with Google</button>
+          {/* <input
+            type="email"
+            placeholder="Email to sign in"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && email && send()}
+          />
+          <button onClick={send} disabled={!email}>Send magic link</button> */}
+        </>
+      )}
+      {err && <div className="err">{err}</div>}
+    </div>
+  );
+}
+
+function Friends({ session }) {
+  const me = session.user.id;
+  const [rows, setRows] = useState([]);
+  const [q, setQ] = useState("");
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    const { data: fs } = await supabase.from("friendships").select("requester, addressee, status");
+    const list = fs || [];
+    const ids = [...new Set(list.flatMap((f) => [f.requester, f.addressee]))].filter((id) => id !== me);
+    let names = {};
+    if (ids.length) {
+      const { data: ps } = await supabase.from("profiles").select("id, username").in("id", ids);
+      names = Object.fromEntries((ps || []).map((p) => [p.id, p.username]));
+    }
+    setRows(
+      list.map((f) => {
+        const other = f.requester === me ? f.addressee : f.requester;
+        return { ...f, other, name: names[other] || "…", incoming: f.addressee === me };
+      })
+    );
+  };
+
+  useEffect(() => { load(); }, [me]);
+  useEffect(() => {
+    const ch = supabase.channel("friends-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, load)
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [me]);
+
+  const add = async () => {
+    setMsg("");
+    const name = q.trim();
+    if (!name) return;
+    const { data: p } = await supabase.from("profiles").select("id").eq("username", name).maybeSingle();
+    if (!p) return setMsg("No user with that username");
+    if (p.id === me) return setMsg("That's you");
+    if (rows.some((r) => r.other === p.id)) return setMsg("Already requested or friends");
+    const { error } = await supabase.from("friendships").insert({ requester: me, addressee: p.id });
+    if (error) return setMsg(error.message);
+    setQ("");
+    setMsg("Request sent");
+    load();
+  };
+
+  const accept = async (r) => {
+    await supabase.from("friendships").update({ status: "accepted" })
+      .eq("requester", r.requester).eq("addressee", r.addressee);
+    load();
+  };
+
+  const remove = async (r) => {
+    await supabase.from("friendships").delete()
+      .eq("requester", r.requester).eq("addressee", r.addressee);
+    load();
+  };
+
+  const incoming = rows.filter((r) => r.status === "pending" && r.incoming);
+  const outgoing = rows.filter((r) => r.status === "pending" && !r.incoming);
+  const friends = rows.filter((r) => r.status === "accepted");
+
+  return (
+    <details className="friends">
+      <summary>
+        Friends ({friends.length}){incoming.length > 0 && <span className="badge">{incoming.length}</span>}
+      </summary>
+
+      <div className="f-add">
+        <input
+          placeholder="Add by username"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+        />
+        <button onClick={add}>Add</button>
+      </div>
+      {msg && <div className="f-msg">{msg}</div>}
+
+      {incoming.map((r) => (
+        <div className="f-row" key={r.other}>
+          <span>{r.name} <small>wants to be friends</small></span>
+          <span>
+            <button onClick={() => accept(r)}>Accept</button>
+            <button className="link" onClick={() => remove(r)}>Decline</button>
+          </span>
+        </div>
+      ))}
+      {outgoing.map((r) => (
+        <div className="f-row" key={r.other}>
+          <span>{r.name} <small>pending</small></span>
+          <button className="link" onClick={() => remove(r)}>Cancel</button>
+        </div>
+      ))}
+      {friends.map((r) => (
+        <div className="f-row" key={r.other}>
+          <span>{r.name}</span>
+          <button className="link" onClick={() => remove(r)}>Remove</button>
+        </div>
+      ))}
+    </details>
+  );
+}
+
 export default function App() {
   const [spots, setSpots] = useState([]);
   const [levels, setLevels] = useState({});
@@ -305,6 +476,9 @@ export default function App() {
   const [hovered, setHovered] = useState(null);
   const markerRefs = useRef({});
   const pendingOpen = useRef(null);
+  const [session, setSession] = useState(null);
+  const [active, setActive] = useState(null);
+  const [live, setLive] = useState([]);
 
   useEffect(() => {
     Papa.parse(SHEET_URL, {
@@ -357,6 +531,53 @@ export default function App() {
     ro.observe(map.getContainer());
     return () => ro.disconnect();
   }, [map]);
+  
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  
+  useEffect(() => {
+    if (!session) return setActive(null);
+    supabase.from("checkins").select("spot_name")
+      .eq("user_id", session.user.id)
+      .is("ended_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("started_at", { ascending: false }).limit(1)
+      .then(({ data }) => setActive(data?.[0]?.spot_name || null));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return setLive([]);
+    const load = async () => {
+      const { data } = await supabase.from("checkins")
+        .select("user_id, spot_name, profiles(username)")
+        .is("ended_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .neq("user_id", session.user.id);
+      setLive(data || []);
+    };
+    load();
+    const ch = supabase.channel("live-checkins")
+      .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, load)
+      .subscribe();
+    const t = setInterval(load, 60000); // drops expired check-ins
+    return () => { supabase.removeChannel(ch); clearInterval(t); };
+  }, [session]);
+
+  const checkIn = async (name) => {
+    const { error } = await supabase.rpc("check_in", { spot: name });
+    if (error) alert(error.message);
+    else setActive(name);
+  };
+
+  const checkOut = async () => {
+    const { error } = await supabase.rpc("check_out");
+    if (error) alert(error.message);
+    else setActive(null);
+  };
 
   // Fly to a spot, then open its popup (same as clicking the waypoint)
   const selectSpot = (name, lat, lng) => {
@@ -409,6 +630,9 @@ export default function App() {
     );
   items.sort(sorters[sortBy]);
 
+  const here = {};
+  live.forEach((c) => (here[c.spot_name] ||= []).push(c.profiles?.username || "?"));
+
   return (
     <>
       <div className="list">
@@ -428,6 +652,41 @@ export default function App() {
             <option value="talk">Can talk only</option>
           </select>
         </h2>
+        <AuthBar session={session} />
+        {session && active && (
+          <div className="mine">
+            <span className="dot" />
+            <span
+              className="mine-text"
+              onClick={() => {
+                const s = spots.find((r) => r["Name"] === active);
+                if (s) selectSpot(s["Name"], parseFloat(s["Latitude"]), parseFloat(s["Longitude"] || s["Lontitude"]));
+              }}
+            >
+              Studying at <b>{active}</b>
+            </span>
+            <button onClick={checkOut}>Leave</button>
+          </div>
+        )}
+        {session && <Friends session={session} />}
+        {session && live.length > 0 && (
+          <div className="live">
+            <div className="live-title">Studying now</div>
+            {live.map((c) => (
+              <div
+                className="live-row"
+                key={c.user_id}
+                onClick={() => {
+                  const s = spots.find((r) => r["Name"] === c.spot_name);
+                  if (s) selectSpot(s["Name"], parseFloat(s["Latitude"]), parseFloat(s["Longitude"] || s["Lontitude"]));
+                }}
+              >
+                <span className="dot" />
+                <b>{c.profiles?.username}</b> at {c.spot_name}
+              </div>
+            ))}
+          </div>
+        )}
         {items.map(({ row, lat, lng, dist }) => {
           const r = parseFloat(clean(row["Rentaro Rating (5)"]));
           const hasR = !isNaN(r);
@@ -459,6 +718,7 @@ export default function App() {
                 <small>
                   {row["Area"]} · {row["Category"]}
                   {lv ? ` · ${lv.length} levels` : ""}
+                  {here[row["Name"]] ? ` · ${here[row["Name"]].length} friend${here[row["Name"]].length > 1 ? "s" : ""} here` : ""}
                 </small>
                 {showTalk && (
                   <div
@@ -545,6 +805,12 @@ export default function App() {
                   {rating && <p>Rating: {rating}/5</p>}
                   {talk && !lv && <p>Can talk: {talk}</p>}
                   {desc && <p>{desc}</p>}
+                  {here[row["Name"]] && <p>Studying here: <b>{here[row["Name"]].join(", ")}</b></p>}
+                  {session && (
+                    active === row["Name"]
+                      ? <button className="chk out" onClick={checkOut}>Leave</button>
+                      : <button className="chk" onClick={() => checkIn(row["Name"])}>I'm studying here</button>
+                  )}
                   <a
                     href={directionsUrl(lat, lng)}
                     target="_blank"
